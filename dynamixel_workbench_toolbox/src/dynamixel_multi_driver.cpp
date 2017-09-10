@@ -47,6 +47,7 @@ bool DynamixelMultiDriver::loadDynamixel(std::vector<dynamixel_driver::Dynamixel
     }
     else
     {
+      ROS_ERROR("Couldn't ping servo id %u!", dynamixel_info[num]->model_id);
       return false;
     }
   }
