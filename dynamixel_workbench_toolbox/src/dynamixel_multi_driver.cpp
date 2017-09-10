@@ -402,15 +402,11 @@ bool DynamixelMultiDriver::syncReadPosition(std::vector<uint32_t> &pos)
       position  = groupSyncReadPosition_->getData(multi_dynamixel_[num]->id_, addr_item->address, addr_item->data_length);
       pos.push_back(position);
     }
-    else
-    {
-      return false;
-    }
   }
 
   groupSyncReadPosition_->clearParam();
 
-  return true;
+  return dxl_getdata_result;
 }
 
 bool DynamixelMultiDriver::syncReadPosition(std::vector<double> &pos)
