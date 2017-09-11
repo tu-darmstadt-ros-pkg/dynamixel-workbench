@@ -415,6 +415,7 @@ bool DynamixelMultiDriver::syncReadPosition(std::vector<double> &pos)
   if (!syncReadPosition(uint_pos))
     return false;
 
+  pos.clear();
   for (std::vector<dynamixel_tool::DynamixelTool *>::size_type num = 0; num < multi_dynamixel_.size(); ++num)
     pos.push_back(multi_dynamixel_[num]->convertValue2Radian(uint_pos[num]));
 
