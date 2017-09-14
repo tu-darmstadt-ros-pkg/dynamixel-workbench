@@ -64,8 +64,8 @@ class DynamixelMultiDriver : public dynamixel_driver::DynamixelDriver
   bool syncWriteVelocity(std::vector<int32_t> vel);
   bool syncWriteVelocity(std::vector<double>& vel);
   bool syncWriteMovingSpeed(std::vector<uint16_t> spd);
-  bool syncWriteEffort(std::vector<int16_t> current);
-  bool syncWriteEffort(std::vector<double>& effort);
+  bool syncWriteCurrent(std::vector<int16_t> current);
+  bool syncWriteCurrent(std::vector<double>& effort);
   bool syncWriteProfileVelocity(std::vector<uint32_t> vel);
   bool syncWriteProfileAcceleration(std::vector<uint32_t> acc);
 

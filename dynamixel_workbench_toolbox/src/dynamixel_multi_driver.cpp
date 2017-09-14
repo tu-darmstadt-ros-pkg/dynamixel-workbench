@@ -287,7 +287,7 @@ bool DynamixelMultiDriver::syncWriteMovingSpeed(std::vector<uint16_t> spd)
   return true;
 }
 
-bool DynamixelMultiDriver::syncWriteEffort(std::vector<int16_t> current)
+bool DynamixelMultiDriver::syncWriteCurrent(std::vector<int16_t> current)
 {
   bool dynamixel_addparam_result_;
   int8_t dynamixel_comm_result_;
@@ -319,7 +319,7 @@ bool DynamixelMultiDriver::syncWriteEffort(std::vector<int16_t> current)
   return true;
 }
 
-bool DynamixelMultiDriver::syncWriteEffort(std::vector<double>& effort)
+bool DynamixelMultiDriver::syncWriteCurrent(std::vector<double>& effort)
 {
   if (effort.size() != multi_dynamixel_.size()) {
     ROS_ERROR("Goal effort has wrong size: %lu instead of %lu!", effort.size(), multi_dynamixel_.size());
