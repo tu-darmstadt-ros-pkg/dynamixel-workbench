@@ -57,7 +57,7 @@ bool DynamixelMultiDriver::loadDynamixel(std::vector<dynamixel_driver::Dynamixel
 
 dynamixel::GroupSyncWrite* DynamixelMultiDriver::setSyncWrite(std::string addr_name)
 {
-  dynamixel_tool::DynamixelTool *dynamixel = multi_dynamixel_[0]; // TODO fix adress only dependent on first joint
+  dynamixel_tool::DynamixelTool *dynamixel = multi_dynamixel_[0]; // TODO fix address only dependent on first joint
 
   dynamixel->item_ = dynamixel->ctrl_table_[addr_name];
   dynamixel_tool::ControlTableItem *addr_item = dynamixel->item_;
@@ -110,6 +110,8 @@ bool DynamixelMultiDriver::initSyncWrite()
 bool DynamixelMultiDriver::initSyncRead()
 {
   groupSyncReadPosition_ = setSyncRead("present_position");
+  groupSyncReadVelocity_ = setSyncRead("present_velocity");
+  groupSyncReadCurrent_  = setSyncRead("present_current");
 
   return true;
 }
@@ -133,6 +135,18 @@ bool DynamixelMultiDriver::readMultiRegister(std::string addr_name)
 
   return true;
 }
+
+bool DynamixelMultiDriver::writeMultiRegister(std::string addr_name, uint32_t value) {
+  bool success = true;
+  for (std::vector<dynamixel_tool::DynamixelTool *>::size_type num = 0; num < multi_dynamixel_.size(); ++num)
+  {
+    dynamixel_= multi_dynamixel_[num];
+    success &= writeRegister(addr_name, value);
+  }
+
+  return success;
+}
+
 
 bool DynamixelMultiDriver::syncWritePosition(std::vector<uint32_t> pos)
 {
@@ -208,6 +222,39 @@ bool DynamixelMultiDriver::syncWriteVelocity(std::vector<int32_t> vel)
   return true;
 }
 
+bool DynamixelMultiDriver::syncWriteVelocity(std::vector<double>& vel)
+{
+  bool dynamixel_addparam_result_;
+  int8_t dynamixel_comm_result_;
+
+  uint8_t param_goal_velocity[4];
+
+  for (std::vector<dynamixel_tool::DynamixelTool *>::size_type num = 0; num < multi_dynamixel_.size(); ++num)
+  {
+    uint32_t vel_ticks = multi_dynamixel_[num]->convertVelocity2Value(vel[num]);
+    param_goal_velocity[0] = DXL_LOBYTE(DXL_LOWORD(vel_ticks));
+    param_goal_velocity[1] = DXL_HIBYTE(DXL_LOWORD(vel_ticks));
+    param_goal_velocity[2] = DXL_LOBYTE(DXL_HIWORD(vel_ticks));
+    param_goal_velocity[3] = DXL_HIBYTE(DXL_HIWORD(vel_ticks));
+
+    dynamixel_addparam_result_ = groupSyncWriteVelocity_->addParam(multi_dynamixel_[num]->id_, (uint8_t*)&param_goal_velocity);
+    if (dynamixel_addparam_result_ != true)
+    {
+      ROS_ERROR("[ID:%03d] groupSyncWrite addparam failed", multi_dynamixel_[num]->id_);
+      return false;
+    }
+  }
+
+  dynamixel_comm_result_ = groupSyncWriteVelocity_->txPacket();
+  if (dynamixel_comm_result_ != COMM_SUCCESS)
+  {
+    packetHandler_->printTxRxResult(dynamixel_comm_result_);
+    return false;
+  }
+  groupSyncWriteVelocity_->clearParam();
+  return true;
+}
+
 bool DynamixelMultiDriver::syncWriteMovingSpeed(std::vector<uint16_t> spd)
 {
   bool dynamixel_addparam_result_;
@@ -240,7 +287,7 @@ bool DynamixelMultiDriver::syncWriteMovingSpeed(std::vector<uint16_t> spd)
   return true;
 }
 
-bool DynamixelMultiDriver::syncWriteCurrent(std::vector<int16_t> cur)
+bool DynamixelMultiDriver::syncWriteEffort(std::vector<int16_t> current)
 {
   bool dynamixel_addparam_result_;
   int8_t dynamixel_comm_result_;
@@ -249,10 +296,47 @@ bool DynamixelMultiDriver::syncWriteCurrent(std::vector<int16_t> cur)
 
   for (std::vector<dynamixel_tool::DynamixelTool *>::size_type num = 0; num < multi_dynamixel_.size(); ++num)
   {
-    param_goal_current[0] = DXL_LOBYTE(DXL_LOWORD(cur[num]));
-    param_goal_current[1] = DXL_HIBYTE(DXL_LOWORD(cur[num]));
-    param_goal_current[2] = DXL_LOBYTE(DXL_HIWORD(cur[num]));
-    param_goal_current[3] = DXL_HIBYTE(DXL_HIWORD(cur[num]));
+    param_goal_current[0] = DXL_LOBYTE(DXL_LOWORD(current[num]));
+    param_goal_current[1] = DXL_HIBYTE(DXL_LOWORD(current[num]));
+    param_goal_current[2] = DXL_LOBYTE(DXL_HIWORD(current[num]));
+    param_goal_current[3] = DXL_HIBYTE(DXL_HIWORD(current[num]));
+
+    dynamixel_addparam_result_ = groupSyncWriteCurrent_->addParam(multi_dynamixel_[num]->id_, (uint8_t*)&param_goal_current);
+    if (dynamixel_addparam_result_ != true)
+    {
+      ROS_ERROR("[ID:%03d] groupSyncWrite addparam failed", multi_dynamixel_[num]->id_);
+      return false;
+    }
+  }
+
+  dynamixel_comm_result_ = groupSyncWriteCurrent_->txPacket();
+  if (dynamixel_comm_result_ != COMM_SUCCESS)
+  {
+    packetHandler_->printTxRxResult(dynamixel_comm_result_);
+    return false;
+  }
+  groupSyncWriteCurrent_->clearParam();
+  return true;
+}
+
+bool DynamixelMultiDriver::syncWriteEffort(std::vector<double>& effort)
+{
+  if (effort.size() != multi_dynamixel_.size()) {
+    ROS_ERROR("Goal effort has wrong size: %lu instead of %lu!", effort.size(), multi_dynamixel_.size());
+    return false;
+  }
+  bool dynamixel_addparam_result_;
+  int8_t dynamixel_comm_result_;
+
+  uint8_t param_goal_current[4];
+
+  for (std::vector<dynamixel_tool::DynamixelTool *>::size_type num = 0; num < multi_dynamixel_.size(); ++num)
+  {
+    uint32_t cur_ticks = multi_dynamixel_[num]->convertTorque2Value(effort[num]);
+    param_goal_current[0] = DXL_LOBYTE(DXL_LOWORD(cur_ticks));
+    param_goal_current[1] = DXL_HIBYTE(DXL_LOWORD(cur_ticks));
+    param_goal_current[2] = DXL_LOBYTE(DXL_HIWORD(cur_ticks));
+    param_goal_current[3] = DXL_HIBYTE(DXL_HIWORD(cur_ticks));
 
     dynamixel_addparam_result_ = groupSyncWriteCurrent_->addParam(multi_dynamixel_[num]->id_, (uint8_t*)&param_goal_current);
     if (dynamixel_addparam_result_ != true)
@@ -370,6 +454,9 @@ bool DynamixelMultiDriver::syncWriteProfileVelocity(std::vector<uint32_t> vel)
 
 bool DynamixelMultiDriver::syncReadPosition(std::vector<uint32_t> &pos)
 {
+  if (pos.size() != multi_dynamixel_.size()) {
+    pos.resize(multi_dynamixel_.size());
+  }
   int  dxl_comm_result = COMM_TX_FAIL;
   bool dxl_addparam_result = false;
   bool dxl_getdata_result = false;
@@ -379,8 +466,6 @@ bool DynamixelMultiDriver::syncReadPosition(std::vector<uint32_t> &pos)
   dynamixel_= multi_dynamixel_[0];
   dynamixel_->item_ = dynamixel_->ctrl_table_["present_position"];
   dynamixel_tool::ControlTableItem *addr_item = dynamixel_->item_;
-
-  pos.clear(); // TODO remove this
 
   for (std::vector<dynamixel_tool::DynamixelTool *>::size_type num = 0; num < multi_dynamixel_.size(); ++num)
   {
@@ -400,7 +485,7 @@ bool DynamixelMultiDriver::syncReadPosition(std::vector<uint32_t> &pos)
     if (dxl_getdata_result)
     {
       position  = groupSyncReadPosition_->getData(multi_dynamixel_[num]->id_, addr_item->address, addr_item->data_length);
-      pos.push_back(position);
+      pos[num] = position;
     }
   }
 
@@ -411,13 +496,98 @@ bool DynamixelMultiDriver::syncReadPosition(std::vector<uint32_t> &pos)
 
 bool DynamixelMultiDriver::syncReadPosition(std::vector<double> &pos)
 {
-  std::vector<uint32_t> uint_pos;
+  if (pos.size() != multi_dynamixel_.size()) {
+    pos.resize(multi_dynamixel_.size());
+  }
+  std::vector<uint32_t> uint_pos(pos.size(), 0);
   if (!syncReadPosition(uint_pos))
     return false;
-
-  pos.clear();
   for (std::vector<dynamixel_tool::DynamixelTool *>::size_type num = 0; num < multi_dynamixel_.size(); ++num)
-    pos.push_back(multi_dynamixel_[num]->convertValue2Radian(uint_pos[num]));
+    pos[num] = multi_dynamixel_[num]->convertValue2Radian(uint_pos[num]);
 
   return true;
+}
+
+bool DynamixelMultiDriver::syncReadVelocity(std::vector<double> &vel)
+{
+  if (vel.size() != multi_dynamixel_.size()) {
+    vel.resize(multi_dynamixel_.size());
+  }
+  int  dxl_comm_result = COMM_TX_FAIL;
+  bool dxl_addparam_result = false;
+  bool dxl_getdata_result = false;
+
+  uint32_t velocity;
+
+  dynamixel_= multi_dynamixel_[0];
+  dynamixel_->item_ = dynamixel_->ctrl_table_["present_velocity"];
+  dynamixel_tool::ControlTableItem *addr_item = dynamixel_->item_;
+
+  for (std::vector<dynamixel_tool::DynamixelTool *>::size_type num = 0; num < multi_dynamixel_.size(); ++num)
+  {
+    dxl_addparam_result = groupSyncReadVelocity_->addParam(multi_dynamixel_[num]->id_);
+    if (dxl_addparam_result != true)
+      return false;
+  }
+
+  dxl_comm_result = groupSyncReadVelocity_->txRxPacket();
+  if (dxl_comm_result != COMM_SUCCESS)
+    packetHandler_->printTxRxResult(dxl_comm_result);
+
+  for (std::vector<dynamixel_tool::DynamixelTool *>::size_type num = 0; num < multi_dynamixel_.size(); ++num)
+  {
+    dxl_getdata_result = groupSyncReadVelocity_->isAvailable(multi_dynamixel_[num]->id_, addr_item->address, addr_item->data_length);
+
+    if (dxl_getdata_result)
+    {
+      velocity  = groupSyncReadVelocity_->getData(multi_dynamixel_[num]->id_, addr_item->address, addr_item->data_length);
+      vel[num] = multi_dynamixel_[num]->convertValue2Velocity(velocity);
+    }
+  }
+
+  groupSyncReadVelocity_->clearParam();
+
+  return dxl_getdata_result;
+}
+
+bool DynamixelMultiDriver::syncReadEffort(std::vector<double> &effort)
+{
+  if (effort.size() != multi_dynamixel_.size()) {
+    effort.resize(multi_dynamixel_.size());
+  }
+  int  dxl_comm_result = COMM_TX_FAIL;
+  bool dxl_addparam_result = false;
+  bool dxl_getdata_result = false;
+
+  uint32_t current;
+
+  dynamixel_= multi_dynamixel_[0];
+  dynamixel_->item_ = dynamixel_->ctrl_table_["present_current"];
+  dynamixel_tool::ControlTableItem *addr_item = dynamixel_->item_;
+
+  for (std::vector<dynamixel_tool::DynamixelTool *>::size_type num = 0; num < multi_dynamixel_.size(); ++num)
+  {
+    dxl_addparam_result = groupSyncReadCurrent_->addParam(multi_dynamixel_[num]->id_);
+    if (dxl_addparam_result != true)
+      return false;
+  }
+
+  dxl_comm_result = groupSyncReadCurrent_->txRxPacket();
+  if (dxl_comm_result != COMM_SUCCESS)
+    packetHandler_->printTxRxResult(dxl_comm_result);
+
+  for (std::vector<dynamixel_tool::DynamixelTool *>::size_type num = 0; num < multi_dynamixel_.size(); ++num)
+  {
+    dxl_getdata_result = groupSyncReadCurrent_->isAvailable(multi_dynamixel_[num]->id_, addr_item->address, addr_item->data_length);
+
+    if (dxl_getdata_result)
+    {
+      current  = groupSyncReadCurrent_->getData(multi_dynamixel_[num]->id_, addr_item->address, addr_item->data_length);
+      effort[num] = multi_dynamixel_[num]->convertValue2Torque(current);
+    }
+  }
+
+  groupSyncReadCurrent_->clearParam();
+
+  return dxl_getdata_result;
 }

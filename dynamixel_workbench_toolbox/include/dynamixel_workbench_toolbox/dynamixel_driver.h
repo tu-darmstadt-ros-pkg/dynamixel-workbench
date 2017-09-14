@@ -25,6 +25,14 @@
 namespace dynamixel_driver
 {
 
+const uint32_t OPERATING_MODE_CURRENT_CONTROL = 0;
+const uint32_t OPERATING_MODE_VELOCITY_CONTROL = 1;
+const uint32_t OPERATING_MODE_POSITION_CONTROL = 3;
+const uint32_t OPERATING_MODE_EXTENDED_POSITION_CONTROL = 4;
+const uint32_t OPERATING_MODE_CURRENT_BASED_POSITION_CONTROL = 5;
+const uint32_t OPERATING_MODE_PWM_CONTROL = 16;
+
+
 typedef struct
 {
   std::string device_name;
