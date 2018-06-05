@@ -38,8 +38,13 @@ bool DynamixelMultiDriver::loadDynamixel(std::vector<dynamixel_driver::Dynamixel
 
   for (std::vector<dynamixel_driver::DynamixelInfo>::size_type num = 0; num < dynamixel_info.size(); ++num)
   {
+    uint16_t configured_model_number = dynamixel_info[num]->model_number;
     if (packetHandler_->ping(portHandler_, dynamixel_info[num]->model_id, &dynamixel_info[num]->model_number, &error) == COMM_SUCCESS)
     {
+      if (configured_model_number != dynamixel_info[num]->model_number) {
+        ROS_WARN_STREAM("Configured model number " << configured_model_number << " does not match pinged model number " << dynamixel_info[num]->model_number
+                        << " for id " << static_cast<int>(dynamixel_info[num]->model_id));
+      }
       dynamixel_tool::DynamixelTool *dynamixel = new dynamixel_tool::DynamixelTool(dynamixel_info[num]->model_id, dynamixel_info[num]->model_number);
       multi_dynamixel_.push_back(dynamixel);
 

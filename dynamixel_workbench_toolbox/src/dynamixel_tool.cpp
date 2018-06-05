@@ -52,7 +52,6 @@ DynamixelTool::DynamixelTool(uint8_t id, uint16_t model_number)
      name_path_("")
 {
   id_ = id;
-
   getModelName(model_number);
   getModelItem();
 }
@@ -77,6 +76,7 @@ bool DynamixelTool::getModelName(uint16_t model_number)
   name_path_  = ros::package::getPath("dynamixel_workbench_toolbox") + "/dynamixel/model_info.list";
 
   std::ifstream file(name_path_.c_str());
+  bool found = false;
   if (file.is_open())
   {
     std::string input_str;
@@ -98,11 +98,16 @@ bool DynamixelTool::getModelName(uint16_t model_number)
 
       if (model_number == std::atoi(tokens[0].c_str()))
       {
+        found = true;
         model_number_ = model_number;
         model_name_ = tokens[1];
       }
     }
     file.close();
+
+    if (!found) {
+      ROS_ERROR_STREAM("Unable to find model number " << model_number << " for id " << static_cast<int>(id_));
+    }
   }
   else
   {
@@ -195,7 +200,8 @@ bool DynamixelTool::getModelPath()
   dynamixel_series = model_name_.substr(0,3);
 
   if (dynamixel_series.find("_") != std::string::npos ||
-      dynamixel_series.find("4") != std::string::npos)
+      dynamixel_series.find("4") != std::string::npos ||
+      dynamixel_series.find("5") != std::string::npos)
     dynamixel_series.erase(2,3);
 
   item_path_  = ros::package::getPath("dynamixel_workbench_toolbox") + "/dynamixel";
